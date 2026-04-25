@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sudoku</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #fff;
+      color: #000;
+      font-family: 'Georgia', serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 24px;
+    }
+
+    h1 {
+      font-size: 1.3rem;
+      font-weight: normal;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+    }
+
+    /* Board = 3×3 grid of boxes, separated by thick black gaps */
+    #board {
+      display: grid;
+      grid-template-columns: repeat(3, auto);
+      grid-template-rows: repeat(3, auto);
+      gap: 3px;
+      background: #000;
+      border: 3px solid #000;
+    }
+
+    /* Each box = 3×3 grid of cells, separated by thin grey gaps */
+    .box {
+      display: grid;
+      grid-template-columns: repeat(3, 52px);
+      grid-template-rows: repeat(3, 52px);
+      gap: 1px;
+      background: #ccc;
+    }
+
+    .cell {
+      width: 52px;
+      height: 52px;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+    }
+
+    .cell.given {
+      font-weight: bold;
+    }
+
+    .cell input {
+      width: 100%;
+      height: 100%;
+      border: none;
+      outline: none;
+      background: transparent;
+      text-align: center;
+      font-size: 1.3rem;
+      font-family: inherit;
+      color: #000;
+      caret-color: transparent;
+      cursor: pointer;
+    }
+
+    .cell input:focus {
+      background: #efefef;
+    }
+
+    .cell.error   { background: #f0f0f0; }
+    .cell.error input { color: #aaa; }
+
+    /* Controls */
+    #numpad {
+      display: grid;
+      grid-template-columns: repeat(9, 40px);
+      gap: 6px;
+    }
+
+    .numpad-btn {
+      width: 40px;
+      height: 40px;
+      background: #fff;
+      color: #000;
+      border: 1px solid #000;
+      font-size: 1rem;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    .numpad-btn:hover { background: #000; color: #fff; }
+
+    #controls { display: flex; gap: 12px; }
+
+    button {
+      background: #000;
+      color: #fff;
+      border: none;
+      padding: 8px 24px;
+      font-size: 0.8rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    button:hover { background: #333; }
+
+    #message {
+      font-size: 0.9rem;
+      letter-spacing: 0.05em;
+      min-height: 1.2em;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Sudoku</h1>
+<div id="board"></div>
+<div id="numpad"></div>
+<div id="controls">
+  <button onclick="newGame()">New Game</button>
+  <button onclick="checkBoard()">Check</button>
+  <button onclick="clearBoard()">Clear</button>
+</div>
+<div id="message"></div>
+
+<script>
+  const puzzles = [
+    {
+      puzzle: [
+        [5,3,0, 0,7,0, 0,0,0],
+        [6,0,0, 1,9,5, 0,0,0],
+        [0,9,8, 0,0,0, 0,6,0],
+        [8,0,0, 0,6,0, 0,0,3],
+        [4,0,0, 8,0,3, 0,0,1],
+        [7,0,0, 0,2,0, 0,0,6],
+        [0,6,0, 0,0,0, 2,8,0],
+        [0,0,0, 4,1,9, 0,0,5],
+        [0,0,0, 0,8,0, 0,7,9],
+      ],
+      solution: [
+        [5,3,4, 6,7,8, 9,1,2],
+        [6,7,2, 1,9,5, 3,4,8],
+        [1,9,8, 3,4,2, 5,6,7],
+        [8,5,9, 7,6,1, 4,2,3],
+        [4,2,6, 8,5,3, 7,9,1],
+        [7,1,3, 9,2,4, 8,5,6],
+        [9,6,1, 5,3,7, 2,8,4],
+        [2,8,7, 4,1,9, 6,3,5],
+        [3,4,5, 2,8,6, 1,7,9],
+      ],
+    },
+    {
+      puzzle: [
+        [0,0,0, 2,6,0, 7,0,1],
+        [6,8,0, 0,7,0, 0,9,0],
+        [1,9,0, 0,0,4, 5,0,0],
+        [8,2,0, 1,0,0, 0,4,0],
+        [0,0,4, 6,0,2, 9,0,0],
+        [0,5,0, 0,0,3, 0,2,8],
+        [0,0,9, 3,0,0, 0,7,4],
+        [0,4,0, 0,5,0, 0,3,6],
+        [7,0,3, 0,1,8, 0,0,0],
+      ],
+      solution: [
+        [4,3,5, 2,6,9, 7,8,1],
+        [6,8,2, 5,7,1, 4,9,3],
+        [1,9,7, 8,3,4, 5,6,2],
+        [8,2,6, 1,9,5, 3,4,7],
+        [3,7,4, 6,8,2, 9,1,5],
+        [9,5,1, 7,4,3, 6,2,8],
+        [5,1,9, 3,2,6, 8,7,4],
+        [2,4,8, 9,5,7, 1,3,6],
+        [7,6,3, 4,1,8, 2,5,9],
+      ],
+    },
+    {
+      puzzle: [
+        [0,0,3, 0,2,0, 6,0,0],
+        [9,0,0, 3,0,5, 0,0,1],
+        [0,0,1, 8,0,6, 4,0,0],
+        [0,0,8, 1,0,2, 9,0,0],
+        [7,0,0, 0,0,0, 0,0,8],
+        [0,0,6, 7,0,8, 2,0,0],
+        [0,0,2, 6,0,9, 5,0,0],
+        [8,0,0, 2,0,3, 0,0,9],
+        [0,0,5, 0,1,0, 3,0,0],
+      ],
+      solution: [
+        [4,8,3, 9,2,1, 6,5,7],
+        [9,6,7, 3,4,5, 8,2,1],
+        [2,5,1, 8,7,6, 4,9,3],
+        [5,4,8, 1,3,2, 9,7,6],
+        [7,2,9, 5,6,4, 1,3,8],
+        [1,3,6, 7,9,8, 2,4,5],
+        [3,7,2, 6,8,9, 5,1,4],
+        [8,1,4, 2,5,3, 7,6,9],
+        [6,9,5, 4,1,7, 3,8,2],
+      ],
+    },
+  ];
+
+  let puzzle, solution;
+  let lastIndex = -1;
+
+  // inputs[r][c] = <input> element, or null if given
+  let inputs = Array.from({length: 9}, () => Array(9).fill(null));
+  let selected = null;
+
+  function newGame() {
+    let idx;
+    do { idx = Math.floor(Math.random() * puzzles.length); } while (idx === lastIndex && puzzles.length > 1);
+    lastIndex = idx;
+    puzzle   = puzzles[idx].puzzle;
+    solution = puzzles[idx].solution;
+    selected = null;
+    inputs = Array.from({length: 9}, () => Array(9).fill(null));
+    const board = document.getElementById('board');
+    board.innerHTML = '';
+    resetErrors();
+    buildBoard();
+  }
+
+  function buildBoard() {
+    const board = document.getElementById('board');
+    // Build 9 boxes in reading order (box 0 = top-left, box 8 = bottom-right)
+    for (let b = 0; b < 9; b++) {
+      const boxEl = document.createElement('div');
+      boxEl.className = 'box';
+      const boxRow = Math.floor(b / 3); // 0,1,2
+      const boxCol = b % 3;             // 0,1,2
+
+      for (let i = 0; i < 9; i++) {
+        const r = boxRow * 3 + Math.floor(i / 3);
+        const c = boxCol * 3 + (i % 3);
+        const cellEl = document.createElement('div');
+        cellEl.className = 'cell';
+
+        if (puzzle[r][c] !== 0) {
+          cellEl.classList.add('given');
+          cellEl.textContent = puzzle[r][c];
+        } else {
+          const inp = document.createElement('input');
+          inp.type = 'text';
+          inp.maxLength = 1;
+          inp.addEventListener('focus', () => { selected = inp; });
+          inp.addEventListener('keydown', (e) => handleKey(e, r, c));
+          inp.addEventListener('input', (e) => {
+            const v = e.target.value.replace(/[^1-9]/g, '');
+            e.target.value = v ? v[v.length - 1] : '';
+            resetErrors();
+          });
+          cellEl.appendChild(inp);
+          inputs[r][c] = inp;
+        }
+        boxEl.appendChild(cellEl);
+      }
+      board.appendChild(boxEl);
+    }
+  }
+
+  function handleKey(e, r, c) {
+    const dirs = { ArrowUp:[-1,0], ArrowDown:[1,0], ArrowLeft:[0,-1], ArrowRight:[0,1] };
+    if (dirs[e.key]) {
+      e.preventDefault();
+      const [dr, dc] = dirs[e.key];
+      let nr = r + dr, nc = c + dc;
+      while (nr >= 0 && nr < 9 && nc >= 0 && nc < 9) {
+        if (inputs[nr][nc]) { inputs[nr][nc].focus(); return; }
+        nr += dr; nc += dc;
+      }
+    }
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      e.target.value = '';
+    }
+  }
+
+  function buildNumpad() {
+    const pad = document.getElementById('numpad');
+    for (let n = 1; n <= 9; n++) {
+      const btn = document.createElement('button');
+      btn.className = 'numpad-btn';
+      btn.textContent = n;
+      btn.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // keep focus on selected input
+        if (selected) { selected.value = n; resetErrors(); }
+      });
+      pad.appendChild(btn);
+    }
+  }
+
+  function checkBoard() {
+    let mistakes = 0;
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        const inp = inputs[r][c];
+        if (!inp || !inp.value) continue;
+        const cell = inp.parentElement;
+        if (parseInt(inp.value) !== solution[r][c]) {
+          cell.classList.add('error');
+          mistakes++;
+        }
+      }
+    }
+    const msg = document.getElementById('message');
+    if (mistakes === 0 && isFilled()) {
+      msg.textContent = 'Solved.';
+    } else if (mistakes > 0) {
+      msg.textContent = `${mistakes} mistake${mistakes > 1 ? 's' : ''}.`;
+    } else {
+      msg.textContent = '';
+    }
+  }
+
+  function clearBoard() {
+    for (let r = 0; r < 9; r++)
+      for (let c = 0; c < 9; c++)
+        if (inputs[r][c]) inputs[r][c].value = '';
+    resetErrors();
+  }
+
+  function resetErrors() {
+    document.getElementById('message').textContent = '';
+    document.querySelectorAll('.cell.error').forEach(el => el.classList.remove('error'));
+  }
+
+  function isFilled() {
+    for (let r = 0; r < 9; r++)
+      for (let c = 0; c < 9; c++)
+        if (inputs[r][c] && !inputs[r][c].value) return false;
+    return true;
+  }
+
+  buildNumpad();
+  newGame();
+</script>
+</body>
+</html>
